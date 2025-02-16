@@ -1,0 +1,23 @@
+version: '3'
+services:
+  eplustv:
+    image: m0ngr31/eplustv
+    container_name: eplustv
+    ports:
+      - "9203:8000" # Exposes port 8000 inside the container to port 9203 on the host
+    networks:
+      - default
+    env_file:
+      - ../config.env
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      LINEAR_CHANNELS: true
+    restart: unless-stopped
+    volumes:
+      - /volume1/docker/eplustv:/app/config
+
+networks:
+  default:
+    external: true
+    name: proxymanager_default

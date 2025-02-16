@@ -1,0 +1,54 @@
+version: "3.9"
+
+services:
+  broker:
+    image: redis:7
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+  db:
+    image: postgres:13
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env_file:
+      - ../config.env  # Shared non-sensitive variables
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+      - broker
+    ports:
+      - "8010:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "-S", "--max-time", "2", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - /volume1/docker/paperless/data:/usr/src/paperless/data
+      - /volume1/docker/paperless/media:/usr/src/paperless/media
+      - /volume1/docker/paperless/export:/usr/src/paperless/export
+      - /volume1/docker/paperless/consume:/usr/src/paperless/consume
+    env_file:
+      - ../config.env  # Shared non-secret variables
+      - .env  # Secrets (ignored by Git)
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBHOST: db
+      USERMAP_UID: 1000
+      USERMAP_GID: 100
+      PAPERLESS_CSRF_TRUSTED_ORIGINS: ${PAPERLESS_CSRF_TRUSTED_ORIGINS}
+      PAPERLESS_SECURE_PROXY_SSL_HEADER: "X-FORWARDED-PROTO,https"  # Proper format
+      DEBUG: "true"
+
+volumes:
+  pgdata:
+  redisdata:

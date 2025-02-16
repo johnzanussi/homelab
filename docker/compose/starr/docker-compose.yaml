@@ -1,0 +1,101 @@
+version: "3.9"
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    hostname: mediagluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "8888:8888/tcp"  # HTTP proxy
+      - "8388:8388/tcp"  # Shadowsocks
+      - "8388:8388/udp"  # Shadowsocks
+      - "8090:8090"      # qBittorrent
+      - "8989:8989"      # Sonarr
+      - "7878:7878"      # Radarr
+      - "9696:9696"      # Prowlarr
+      - "6767:6767"      # Bazarr
+    volumes:
+      - /volume1/docker/starr/gluetun:/gluetun
+    env_file:
+      - ../config.env  # Shared, non-secret variables
+    environment:
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
+      WIREGUARD_PUBLIC_KEY: ${WIREGUARD_PUBLIC_KEY}
+      WIREGUARD_ALLOWED_IPS: "0.0.0.0/0"
+      VPN_SERVICE_PROVIDER: ${VPN_SERVICE_PROVIDER}
+      VPN_PORT_FORWARDING_PROVIDER: ${VPN_SERVICE_PROVIDER}
+      VPN_TYPE: ${VPN_TYPE}
+      SERVER_COUNTRIES: "United States"
+      FIREWALL_OUTBOUND_SUBNETS: ${FIREWALL_OUTBOUND_SUBNETS}
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    restart: unless-stopped
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    env_file:
+      - ../config.env
+    volumes:
+      - /volume1/docker/starr/sonarr:/config
+      - /volume1/Media/TV:/tv
+      - /volume1/docker/starr/qbittorrent/downloads:/downloads
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    env_file:
+      - ../config.env
+    volumes:
+      - /volume1/docker/starr/radarr:/config
+      - /volume1/Media/Movies:/movies
+      - /volume1/docker/starr/qbittorrent/downloads:/downloads
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    env_file:
+      - ../config.env
+    volumes:
+      - /volume1/docker/starr/prowlarr:/config
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+  bazarr:
+    image: hotio/bazarr:latest
+    env_file:
+      - ../config.env
+    volumes:
+      - /volume1/docker/starr/bazarr/config:/config
+      - /volume1/docker/starr/bazarr/data:/data
+      - /volume1/Media/TV:/tv
+      - /volume1/Media/Movies:/movies
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    env_file:
+      - ../config.env
+    environment:
+      WEBUI_PORT: "8090"
+    volumes:
+      - /volume1/docker/starr/qbittorrent/config:/config
+      - /volume1/docker/starr/qbittorrent/downloads:/downloads
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
